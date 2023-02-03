@@ -1065,9 +1065,12 @@ public class QueryManager extends AlpineQueryManager {
         if (checkInternal && component.isInternal()) {
             List<Project> projects = findComponentAsProject(component);
             if (projects != null && projects.size()==1) {
-                ProjectMetrics projMetrics = getMetricsQueryManager().getMostRecentProjectMetrics(projects.get(0));
+                Project project =  projects.get(0);
+                ProjectMetrics projMetrics = getMetricsQueryManager().getMostRecentProjectMetrics(project);
 
                 if (projMetrics != null) {
+                    // Don't like this; but I don't see any other way of passing the risk score back
+                    component.setLastInheritedRiskScore(project.getLastInheritedRiskScore());
                     return convertProjectMetrics(component, projMetrics);
                 }
             }
