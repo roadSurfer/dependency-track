@@ -133,6 +133,7 @@ final class ComponentQueryManager extends QueryManager implements IQueryManager 
     /**
      * Returns a List of Dependency for the specified Project.
      * @param project the Project to retrieve dependencies of
+     * @param includeMetrics Whether to include analysis metrics
      * @return a List of Dependency objects
      */
     public PaginatedResult getComponents(final Project project, final boolean includeMetrics) {
@@ -153,7 +154,7 @@ final class ComponentQueryManager extends QueryManager implements IQueryManager 
             // Populate each Component object in the paginated result with transitive related
             // data to minimize the number of round trips a client needs to make, process, and render.
             for (Component component : result.getList(Component.class)) {
-                component.setMetrics(getMostRecentDependencyMetrics(component));
+                component.setMetrics(getMostRecentDependencyMetrics(component, true));
                 final PackageURL purl = component.getPurl();
                 if (purl != null) {
                     final RepositoryType type = RepositoryType.resolve(purl);
@@ -186,7 +187,7 @@ final class ComponentQueryManager extends QueryManager implements IQueryManager 
             default -> "(blake3 == :hash)";
         };
 
-        final Query<Component> query = pm.newQuery(Component.class);;
+        final Query<Component> query = pm.newQuery(Component.class);
         final Map<String, Object> params = Map.of("hash", hash);
         preprocessACLs(query, queryFilter, params, false);
         return execute(query, params);

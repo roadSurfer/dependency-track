@@ -345,6 +345,10 @@ public class QueryManager extends AlpineQueryManager {
         return getProjectQueryManager().getProject(name, version);
     }
 
+    public List<Project> findComponentAsProject(final Component component) {
+        return getProjectQueryManager().findComponentAsProject(component);
+    }
+
     public PaginatedResult getProjects(final Team team, final boolean excludeInactive, final boolean bypass, final boolean onlyRoot) {
         return getProjectQueryManager().getProjects(team, excludeInactive, bypass, onlyRoot);
     }
@@ -1046,7 +1050,124 @@ public class QueryManager extends AlpineQueryManager {
     }
 
     public DependencyMetrics getMostRecentDependencyMetrics(Component component) {
+        return getMostRecentDependencyMetrics(component, false);
+    }
+
+    /**
+     * Fetch the most recent metrics for a component. If <code>checkInternal</code> is set and the component is an
+     * internal one; see if a unique project can be matched against the component's PURL, CPE or SWID Tag Id and return
+     * those project's metrics instead
+     * @param component The component to find metrics for
+     * @param checkInternal If true and the component is internal,
+     * @return The metrics
+     */
+    public DependencyMetrics getMostRecentDependencyMetrics(Component component, boolean checkInternal) {
+        if (checkInternal && component.isInternal()) {
+            List<Project> projects = findComponentAsProject(component);
+            if (projects != null && projects.size()==1) {
+                ProjectMetrics projMetrics = getMetricsQueryManager().getMostRecentProjectMetrics(projects.get(0));
+
+                if (projMetrics != null) {
+                    return convertProjectMetrics(component, projMetrics);
+                }
+            }
+        }
         return getMetricsQueryManager().getMostRecentDependencyMetrics(component);
+    }
+
+    // TODO This is ugly
+
+    /**
+     * Create a shallow clone of the component good enough for basic UI
+     * @param source The component to clone
+     * @return The cloned object
+     */
+    private Component shallowCloneComponent(Component source) {
+        Component result = new Component();
+
+        result.setId(source.getId());
+        result.setUuid(source.getUuid());
+        result.setGroup(source.getGroup());
+        result.setName(source.getName());
+        result.setVersion(source.getVersion());
+        result.setPurl(source.getPurl());
+        result.setCpe(source.getCpe());
+        result.setSwidTagId(source.getSwidTagId());
+        result.setResolvedLicense(source.getResolvedLicense());
+        result.setBomRef(source.getBomRef());
+        result.setProject(shallowCloneProject(source.getProject()));
+
+        return result;
+    }
+
+    // TODO This is ugly
+    /**
+     * Create a shallow clone of the project good enough for basic UI
+     * @param source The project to clone
+     * @return The cloned object
+     */
+    private Project shallowCloneProject(Project source) {
+        Project result = new Project();
+
+        result.setId(source.getId());
+        result.setUuid(source.getUuid());
+        result.setGroup(source.getGroup());
+        result.setName(source.getName());
+        result.setVersion(source.getVersion());
+        result.setPurl(source.getPurl());
+        result.setCpe(source.getCpe());
+        result.setSwidTagId(source.getSwidTagId());
+        result.setPublisher(source.getPublisher());
+
+        return result;
+    }
+
+    // TODO This is ugly
+    /**
+     * Convert project metrics over to dependency metrics
+     * @param component The component to create the metrics for
+     * @return The converted metrics
+     */
+    private DependencyMetrics convertProjectMetrics(Component component, ProjectMetrics source) {
+        DependencyMetrics depMetrics = new DependencyMetrics();
+
+        // This needs cloned to prevent infinite recursion when serialising
+        Component shallowClone = shallowCloneComponent(component);
+        depMetrics.setProject(shallowClone.getProject());
+        depMetrics.setComponent(shallowClone);
+
+        depMetrics.setCritical(source.getCritical());
+        depMetrics.setId(source.getId());
+        depMetrics.setCritical(source.getCritical());
+        depMetrics.setHigh(source.getHigh());
+        depMetrics.setMedium(source.getMedium());
+        depMetrics.setLow(source.getLow());
+        depMetrics.setUnassigned(source.getUnassigned());
+        depMetrics.setVulnerabilities(Math.toIntExact(source.getVulnerabilities()));
+        depMetrics.setSuppressed(source.getSuppressed());
+        depMetrics.setFindingsTotal(source.getFindingsTotal());
+        depMetrics.setFindingsAudited(source.getFindingsAudited());
+        depMetrics.setFindingsUnaudited(source.getFindingsUnaudited());
+        depMetrics.setInheritedRiskScore(source.getInheritedRiskScore());
+        depMetrics.setPolicyViolationsFail(source.getPolicyViolationsFail());
+        depMetrics.setPolicyViolationsWarn(source.getPolicyViolationsWarn());
+        depMetrics.setPolicyViolationsInfo(source.getPolicyViolationsInfo());
+        depMetrics.setPolicyViolationsTotal(source.getPolicyViolationsTotal());
+        depMetrics.setPolicyViolationsAudited(source.getPolicyViolationsAudited());
+        depMetrics.setPolicyViolationsUnaudited(source.getPolicyViolationsUnaudited());
+        depMetrics.setPolicyViolationsSecurityTotal(source.getPolicyViolationsSecurityTotal());
+        depMetrics.setPolicyViolationsSecurityAudited(source.getPolicyViolationsSecurityAudited());
+        depMetrics.setPolicyViolationsSecurityUnaudited(source.getPolicyViolationsSecurityUnaudited());
+        depMetrics.setPolicyViolationsLicenseTotal(source.getPolicyViolationsLicenseTotal());
+        depMetrics.setPolicyViolationsLicenseAudited(source.getPolicyViolationsLicenseAudited());
+        depMetrics.setPolicyViolationsLicenseUnaudited(source.getPolicyViolationsLicenseUnaudited());
+        depMetrics.setPolicyViolationsOperationalTotal(source.getPolicyViolationsOperationalTotal());
+        depMetrics.setPolicyViolationsOperationalAudited(source.getPolicyViolationsOperationalAudited());
+        depMetrics.setPolicyViolationsOperationalUnaudited(source.getPolicyViolationsOperationalUnaudited());
+        depMetrics.setFirstOccurrence(source.getFirstOccurrence());
+        depMetrics.setLastOccurrence(source.getLastOccurrence());
+
+        return depMetrics;
     }
 
     public PaginatedResult getDependencyMetrics(Component component) {

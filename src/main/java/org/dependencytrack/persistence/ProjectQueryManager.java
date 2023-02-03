@@ -55,9 +55,9 @@ import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -215,6 +215,37 @@ final class ProjectQueryManager extends QueryManager implements IQueryManager {
         query.setFilter(queryFilter);
         query.setRange(0, 1);
         return singleResult(query.executeWithMap(params));
+    }
+
+    /**
+     * See is a component is also represented as a project byt matching on PURL, CPE, or SWID Tag Id. As there may be
+     * multiple matches, a list is returned.
+     * @param component The component to search for
+     * @return A list of projects appearing to representing the component
+     */
+    public List<Project> findComponentAsProject(final Component component) {
+        if (component.getPurl() != null || component.getCpe()!=null || component.getSwidTagId()!=null) {
+            final Query<Project> query = pm.newQuery(Project.class);
+            final var filterBuilder = new ProjectQueryFilterBuilder().withPurlOrCpeOrSwid(component.getPurl(), component.getCpe(), component.getSwidTagId());
+
+            final String queryFilter = filterBuilder.buildFilter();
+            final Map<String, Object> params = filterBuilder.getParams();
+
+            preprocessACLs(query, queryFilter, params, false);
+            query.setFilter(queryFilter);
+            query.setRange(0, 1);
+            Object queryResult = query.executeWithMap(params);
+            if (queryResult != null && queryResult instanceof Collection) {
+                Collection objectResult = (Collection) queryResult;
+                if (CollectionUtils.isNotEmpty(objectResult)) {
+                    List<Project> result = new ArrayList<>(objectResult.size());
+                    objectResult.stream().forEach(o -> result.add((Project) o));
+                    return result;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

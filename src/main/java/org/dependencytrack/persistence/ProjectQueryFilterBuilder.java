@@ -1,6 +1,7 @@
 package org.dependencytrack.persistence;
 
 import alpine.model.Team;
+import com.github.packageurl.PackageURL;
 import org.dependencytrack.model.Classifier;
 import org.dependencytrack.model.Tag;
 
@@ -87,6 +88,37 @@ class ProjectQueryFilterBuilder {
         params.put("parentUuid", uuid);
 
         filterCriteria.add("parent.uuid == :parentUuid");
+        return this;
+    }
+
+    ProjectQueryFilterBuilder withPurlOrCpeOrSwid(PackageURL purl, String cpe, String swidTagId){
+        StringBuilder filter = new StringBuilder();
+        int terms=0;
+        if (purl!=null) {
+            params.put("purl", purl.canonicalize());
+            filter.append("purl == :purl ||");
+            terms++;
+        }
+        if (cpe!=null) {
+            params.put("cpe", cpe);
+            filter.append("cpe == :cpe ||");
+            terms++;
+        }
+        if (swidTagId!=null) {
+            params.put("swidTagId", swidTagId);
+            filter.append("swidtagid == :swidTagId ||");
+            terms++;
+        }
+
+        if (terms > 0) {
+            filter.setLength(filter.length()-3);
+            if (terms > 1) {
+                filter.insert(0, "(");
+                filter.append(")");
+            }
+            filterCriteria.add(filter.toString());
+        }
+
         return this;
     }
 
